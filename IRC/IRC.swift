@@ -28,7 +28,7 @@ public class IRCChannel {
             }
             
             buffer.forEach { (line) in
-                delegate.didRecieveMessage(self, message: line)
+                delegate.didReceiveMessage(self, message: line)
             }
             buffer = []
         }
@@ -45,7 +45,7 @@ public class IRCChannel {
     
     func receive(_ text: String) {
         if let delegate = self.delegate {
-            delegate.didRecieveMessage(self, message: text)
+            delegate.didReceiveMessage(self, message: text)
         } else {
             buffer.append(text)
         }
@@ -64,7 +64,7 @@ public class IRCServer {
             }
             
             buffer.forEach { (line) in
-                delegate.didRecieveMessage(self, message: line)
+                delegate.didReceiveMessage(self, message: line)
             }
             buffer = []
         }
@@ -110,7 +110,7 @@ public class IRCServer {
         case .serverMessage(_, let message):
             print(message)
             if let delegate = self.delegate {
-                delegate.didRecieveMessage(self, message: message)
+                delegate.didReceiveMessage(self, message: message)
             } else {
                 self.buffer.append(message)
             }
@@ -158,10 +158,10 @@ public class IRCServer {
 }
 
 public protocol IRCServerDelegate {
-    func didRecieveMessage(_ server: IRCServer, message: String)
+    func didReceiveMessage(_ server: IRCServer, message: String)
 }
 
 
 public protocol IRCChannelDelegate {
-    func didRecieveMessage(_ channel: IRCChannel, message: String)
+    func didReceiveMessage(_ channel: IRCChannel, message: String)
 }
