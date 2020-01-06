@@ -13,7 +13,12 @@ public struct IRCUser {
         public let username: String
         public let realName: String
         public let nick: String
-        public let pass: String?
+        
+        public init(username: String, realName: String, nick: String) {
+                self.username = username
+                self.realName = realName
+                self.nick = nick
+        }
 }
 
 public class IRCChannel {
@@ -71,7 +76,7 @@ public class IRCServer {
         private var task: URLSessionStreamTask!
         private var channels = [IRCChannel]()
         
-        public required init(hostname: String, port: Int, user: IRCUser, session: URLSession) {
+        public required init(hostname: String, port: Int, user: IRCUser, userPass: String?, session: URLSession) {
                 self.session = session
                 
                 task = session.streamTask(withHostName: hostname, port: port)
@@ -80,11 +85,11 @@ public class IRCServer {
                 
                 send("USER \(user.username) 0 * :\(user.realName)")
                 send("NICK \(user.nick)")
-                if let pass = user.pass { send("PASS \(pass)") }
+                if let userPass = userPass { send("PASS \(userPass)") }
         }
         
-        public class func connect(_ hostname: String, port: Int, user: IRCUser, session: URLSession = URLSession.shared) -> Self {
-                return self.init(hostname: hostname, port: port, user: user, session: session)
+        public class func connect(_ hostname: String, port: Int, user: IRCUser, userPass: String?, session: URLSession = URLSession.shared) -> Self {
+                return self.init(hostname: hostname, port: port, user: user, userPass: userPass, session: session)
         }
         
         private func read() {
