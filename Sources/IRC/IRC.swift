@@ -83,9 +83,9 @@ public class IRCServer {
                 task.resume()
                 read()
                 
+                if let userPass = userPass { send("PASS \(userPass)") }
                 send("USER \(user.username) 0 * :\(user.realName)")
                 send("NICK \(user.nick)")
-                if let userPass = userPass { send("PASS \(userPass)") }
         }
         
         public class func connect(_ hostname: String, port: Int, user: IRCUser, userPass: String?, session: URLSession = URLSession.shared) -> Self {
