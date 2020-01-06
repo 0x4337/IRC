@@ -3,7 +3,8 @@
 //  IRC
 //
 //  Created by Samuel Ryan Goodwin on 8/19/17.
-//  Copyright © 2017 Roundwall Software. All rights reserved.
+//  Updated by Feets on 2020-01-07
+//  Copyright © 2017, 2020 Roundwall Software, Feets. All rights reserved.
 //
 
 #import <Cocoa/Cocoa.h>
