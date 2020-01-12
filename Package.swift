@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "IRC",
+        platforms: [.macOS(.v10_11)],
 	products: [
 		.library(
 			name: "IRC",
