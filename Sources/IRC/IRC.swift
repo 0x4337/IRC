@@ -76,9 +76,11 @@ public class IRCServer {
         private var task: URLSessionStreamTask!
         private var channels = [IRCChannel]()
         
-        public required init(hostname: String, port: Int, user: IRCUser, userPass: String?, session: URLSession) {
+        public required init(session: URLSession = URLSession.shared) {
                 self.session = session
-                
+        }
+        
+        public func connect(hostname: String, port: Int, user: IRCUser, userPass: String?) {
                 task = session.streamTask(withHostName: hostname, port: port)
                 task.resume()
                 read()
@@ -88,12 +90,20 @@ public class IRCServer {
                 send("NICK \(user.nick)")
         }
         
-        public class func connect(_ hostname: String, port: Int, user: IRCUser, userPass: String?, session: URLSession = URLSession.shared) -> Self {
-                return self.init(hostname: hostname, port: port, user: user, userPass: userPass, session: session)
+        public func disconnect() {
+                self.task.closeRead()
+                self.task.closeWrite()
+                self.task.cancel()
         }
         
         private func read() {
                 task.readData(ofMinLength: 0, maxLength: 9999, timeout: 0) { (data, atEOF, error) in
+                        guard error == nil else {
+                                print(error!)
+                                self.disconnect()
+                                return
+                        }
+                        
                         guard let data = data, let message = String(data: data, encoding: .utf8) else {
                                 return
                         }
