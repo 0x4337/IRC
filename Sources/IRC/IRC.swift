@@ -29,7 +29,7 @@ public class IRCChannel {
                         }
                         
                         buffer.forEach { (line) in
-                                delegate.didReceiveMessage(self, message: line)
+                                delegate.didReceiveMessage(self, user: nil, message: line)
                         }
                         buffer = []
                 }
@@ -44,11 +44,11 @@ public class IRCChannel {
         }
         
         
-        func receive(_ text: String) {
+        func receive(user: String?, message: String) {
                 if let delegate = self.delegate {
-                        delegate.didReceiveMessage(self, message: text)
+                        delegate.didReceiveMessage(self, user: user, message: message)
                 } else {
-                        buffer.append(text)
+                        buffer.append(message)
                 }
         }
         
@@ -119,6 +119,8 @@ public class IRCServer {
         private func processLine(_ message: String) {
                 let input = IRCServerInputParser.parseServerMessage(message)
                 switch input {
+                case .ping:
+                        self.send("PONG")
                 case .serverMessage(_, let message):
                         print(message)
                         if let delegate = self.delegate {
@@ -129,20 +131,20 @@ public class IRCServer {
                 case .joinMessage(let user, let channelName):
                         self.channels.forEach({ (channel) in
                                 if channel.name == channelName {
-                                        channel.receive("\(user) joined \(channelName)")
+                                        channel.receive(user: nil, message: "\(user) joined \(channelName)")
                                 }
                         })
                 case .channelMessage(let channelName, let user, let message):
                         self.channels.forEach({ (channel) in
                                 if channel.name == channelName {
-                                        channel.receive("\(user): \(message)")
+                                        channel.receive(user: user, message: message)
                                 }
                         })
                 case .userList(let channelName, let users):
                         self.channels.forEach({ (channel) in
                                 if channel.name == channelName {
                                         users.forEach({ (user) in
-                                                channel.receive("\(user) joined")
+                                                channel.receive(user: nil, message: "\(user) joined")
                                         })
                                 }
                         })
@@ -175,5 +177,5 @@ public protocol IRCServerDelegate {
 
 
 public protocol IRCChannelDelegate {
-        func didReceiveMessage(_ channel: IRCChannel, message: String)
+        func didReceiveMessage(_ channel: IRCChannel, user: String?, message: String)
 }
