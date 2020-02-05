@@ -9,34 +9,49 @@
 
 import Foundation
 
-struct IRCServerInputParser {
-        static func parseServerMessage(_ message: String) -> IRCServerInput {
+extension IRCConnection {
+        func processLine(_ message: String) {
                 if message.hasPrefix("PING") {
-                        return .ping
+                        self.send("PONG")
+                        return
                 }
                 
-                if message.hasPrefix(":") {
-                        let firstSpaceIndex = message.index(of: " ")!
-                        let source = message[..<firstSpaceIndex]
-                        let rest = message[firstSpaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
+                var tags: [String : String]?
+                let components = message.split(separator: " ")
+                if let firstComponent = components.first, firstComponent.hasPrefix("@") {
+                        tags = IRCConnection.parseTags(String(firstComponent))
+                }
+                let processedMessage = tags != nil ? components.dropFirst().joined(separator: " ") : message
+                
+                if processedMessage.hasPrefix(":") {
+                        let firstSpaceIndex = processedMessage.firstIndex(of: " ")!
+                        let source = processedMessage[..<firstSpaceIndex]
+                        let rest = processedMessage[firstSpaceIndex...].trimmingCharacters(in: .whitespacesAndNewlines)
                         print(source)
                         
                         if rest.hasPrefix("PRIVMSG") {
-                                let remaining = rest[rest.index(message.startIndex, offsetBy: 8)...]
+                                let remaining = rest[rest.index(processedMessage.startIndex, offsetBy: 8)...]
                                 
                                 if remaining.hasPrefix("#") {
                                         let split = remaining.components(separatedBy: ":")
-                                        let channel = split[0].trimmingCharacters(in: CharacterSet(charactersIn: " #"))
-                                        let user = source.components(separatedBy: "!")[0].trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+                                        let channelName = split[0].trimmingCharacters(in: CharacterSet(charactersIn: " #"))
+                                        let nick = source.components(separatedBy: "!")[0].trimmingCharacters(in: CharacterSet(charactersIn: ":"))
                                         let message = split[1]
                                         
-                                        return .channelMessage(channel: channel, user: user, message: message)
+                                        if let channel = self.server.connectedChannels.first(where: { $0.name == channelName }), let user = channel.connectedUsers.first(where: { $0.nick == nick }) {
+                                                self.delegate?.ircConnection(self, didReceiveChannelMessage: message, withTags: tags, fromUser: user, inChannel: channel)
+                                        }
                                 }
                         } else if rest.hasPrefix("JOIN") {
-                                let user = source.components(separatedBy: "!")[0].trimmingCharacters(in: CharacterSet(charactersIn: ":"))
-                                let channel = rest[rest.index(message.startIndex, offsetBy: 5)...].trimmingCharacters(in: CharacterSet(charactersIn: "# "))
-                                return .joinMessage(user: user, channel: channel)
-                        } else{
+                                let nick = source.components(separatedBy: "!")[0].trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+                                let channelName = rest[rest.index(processedMessage.startIndex, offsetBy: 5)...].trimmingCharacters(in: CharacterSet(charactersIn: "# "))
+                                
+                                if let channel = self.server.connectedChannels.first(where: { $0.name == channelName }) {
+                                        let user = User(username: nick, nick: nick)
+                                        if !channel.connectedUsers.contains(where: { $0 == user }) { channel.add(user: user) }
+                                        self.delegate?.ircConnection(self, userDidJoinChannel: channel, user: user)
+                                }
+                        } else {
                                 let server = source.trimmingCharacters(in: CharacterSet(charactersIn: ": "))
                                 
                                 // :development.irc.roundwallsoftware.com 353 mukman = #clearlyafakechannel :mukman @sgoodwin\r\n:development.irc.roundwallsoftware.com 366 mukman #clearlyafakechannel :End of /NAMES list.
@@ -56,38 +71,53 @@ struct IRCServerInputParser {
                                         scanner.scanUpTo(" ", into: &user)
                                         users.append((user as String?)!.trimmingCharacters(in: CharacterSet(charactersIn: ":")))
                                         
-                                        return .userList(channel: channelName, users: users)
+                                        if var channel = self.server.connectedChannels.first(where: { $0.name == channelName }) {
+                                                users.forEach { user in
+                                                        if channel.connectedUsers.first(where: { $0.nick == user }) == nil {
+                                                                let user = User(username: user, nick: user)
+                                                                channel.add(user: user)
+                                                        }
+                                                }
+                                        }
                                 }
                                 
                                 if rest.contains(":") {
                                         let serverMessage = rest.components(separatedBy: ":")[1]
-                                        return .serverMessage(server: server, message: serverMessage)
+                                        self.delegate?.ircConnection(self, didReceiveServerMessage: serverMessage)
                                 } else {
-                                        return .serverMessage(server: server, message: rest)
+                                        self.delegate?.ircConnection(self, didReceiveServerMessage: rest)
                                 }
                         }
                 }
-                
-                return .unknown(raw: message)
+        }
+        
+        static private func parseTags(_ string: String) -> [String : String] {
+                let components = string.split(separator: ";")
+                return components.reduce(into: [String : String]()) { result, component in
+                        let split = component.split(separator: "=")
+                        if split.count == 2 {
+                                result[String(split[0])] = String(split[1])
+                        }
+                }
         }
 }
 
 enum IRCServerInput: Equatable {
         case unknown(raw: String)
         case ping
-        case serverMessage(server: String, message: String)
-        case channelMessage(channel: String, user: String, message: String)
-        case joinMessage(user: String, channel: String)
-        case userList(channel: String, users: [String])
+        case serverMessage(server: Server, message: String)
+        case channelMessage(channel: Channel, user: User, message: String, tags: [String : String]?)
+        case joinMessage(userNick: String, channel: Channel)
+        case userList(channel: String, users: [User])
 }
 
 func ==(lhs: IRCServerInput, rhs: IRCServerInput) -> Bool{
         switch (lhs, rhs) {
         case (.ping, .ping):
                 return true
-        case (.channelMessage(let lhsChannel, let lhsUser, let lhsMessage),
-              .channelMessage(let rhsChannel, let rhsUser, let rhsMessage)):
-                return lhsChannel == rhsChannel && lhsMessage == rhsMessage && lhsUser == rhsUser
+        case (.channelMessage(let lhsChannel, let lhsUser, let lhsMessage, let lhsTags),
+              .channelMessage(let rhsChannel, let rhsUser, let rhsMessage, let rhsTags)):
+                return lhsChannel == rhsChannel && lhsMessage == rhsMessage && lhsUser == rhsUser && lhsTags == rhsTags
         case (.serverMessage(let lhsServer, let lhsMessage),
               .serverMessage(let rhsServer, let rhsMessage)):
                 return lhsServer == rhsServer && lhsMessage == rhsMessage
