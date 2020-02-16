@@ -15,8 +15,10 @@ public class Server {
         public let port: Int
         
         private var channels = [Channel]()
-        public var connectedChannels: [Channel] {
-                return self.channels
+        public var connectedChannels: [String: Channel] {
+                return self.channels.reduce(into: [String: Channel]()) { result, channel in
+                        result[channel.name] = channel
+                }
         }
         
         public init(name: String, hostname: String, port: Int) {

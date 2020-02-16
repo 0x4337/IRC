@@ -55,7 +55,7 @@ public class IRCConnection {
                                 self.task.closeRead()
                                 self.task.closeWrite()
                                 self.task.cancel()
-                                self.connect(joiningChannels: self.server.connectedChannels.map { $0.name }, requestingCapabilities: nil)
+                                self.connect(joiningChannels: self.server.connectedChannels.map { $0.key }, requestingCapabilities: nil)
                                 return
                         }
                         
