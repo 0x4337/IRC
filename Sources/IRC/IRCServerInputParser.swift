@@ -8,6 +8,9 @@
 //
 
 import Foundation
+#if os(Linux)
+import FoundationNetworking
+#endif
 
 extension IRCConnection {
         func processLine(_ message: String) {
@@ -38,7 +41,7 @@ extension IRCConnection {
                                         let nick = source.components(separatedBy: "!")[0].trimmingCharacters(in: CharacterSet(charactersIn: ":"))
                                         let message = split[1]
                                         
-                                        if let channel = self.server.connectedChannels.first(where: { $0.name == channelName }), let user = channel.connectedUsers.first(where: { $0.nick == nick }) {
+                                        if let channel = self.server.connectedChannels[channelName], let user = channel.connectedUsers.first(where: { $0.nick == nick }) {
                                                 self.delegate?.ircConnection(self, didReceiveChannelMessage: message, withTags: tags, fromUser: user, inChannel: channel)
                                         }
                                 }
@@ -46,7 +49,7 @@ extension IRCConnection {
                                 let nick = source.components(separatedBy: "!")[0].trimmingCharacters(in: CharacterSet(charactersIn: ":"))
                                 let channelName = rest[rest.index(processedMessage.startIndex, offsetBy: 5)...].trimmingCharacters(in: CharacterSet(charactersIn: "# "))
                                 
-                                if let channel = self.server.connectedChannels.first(where: { $0.name == channelName }) {
+                                if let channel = self.server.connectedChannels[channelName] {
                                         let user = User(username: nick, nick: nick)
                                         if !channel.connectedUsers.contains(where: { $0 == user }) { channel.add(user: user) }
                                         self.delegate?.ircConnection(self, userDidJoinChannel: channel, user: user)
@@ -71,7 +74,7 @@ extension IRCConnection {
                                         scanner.scanUpTo(" ", into: &user)
                                         users.append((user as String?)!.trimmingCharacters(in: CharacterSet(charactersIn: ":")))
                                         
-                                        if var channel = self.server.connectedChannels.first(where: { $0.name == channelName }) {
+                                        if var channel = self.server.connectedChannels[channelName] {
                                                 users.forEach { user in
                                                         if channel.connectedUsers.first(where: { $0.nick == user }) == nil {
                                                                 let user = User(username: user, nick: user)

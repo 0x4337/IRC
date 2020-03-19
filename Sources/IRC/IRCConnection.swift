@@ -8,6 +8,9 @@
 //
 
 import Foundation
+#if os(Linux)
+import FoundationNetworking
+#endif
 
 public class IRCConnection {
         public weak var delegate: IRCConnectionDelegate?
