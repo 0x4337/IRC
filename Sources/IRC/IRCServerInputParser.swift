@@ -14,6 +14,8 @@ import FoundationNetworking
 
 extension IRCConnection {
         func processLine(_ message: String) {
+                print("RECEIVED \(message)")
+                
                 if message.hasPrefix("PING") {
                         self.send("PONG")
                         return
@@ -41,7 +43,8 @@ extension IRCConnection {
                                         let nick = source.components(separatedBy: "!")[0].trimmingCharacters(in: CharacterSet(charactersIn: ":"))
                                         let message = split[1]
                                         
-                                        if let channel = self.server.connectedChannels[channelName], let user = channel.connectedUsers.first(where: { $0.nick == nick }) {
+                                        if let channel = self.server.connectedChannels[channelName] {
+                                                let user = channel.connectedUsers.first(where: { $0.nick == nick }) ?? User(username: nick, nick: nick)
                                                 self.delegate?.ircConnection(self, didReceiveChannelMessage: message, withTags: tags, fromUser: user, inChannel: channel)
                                         }
                                 }
